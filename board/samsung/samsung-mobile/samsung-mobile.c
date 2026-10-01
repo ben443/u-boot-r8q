@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Samsung Exynos Generic Board Source (for mobile devices)
+ * Samsung Mobile Board Support (Qualcomm Snapdragon)
+ *
+ * Supports Samsung Galaxy devices using Qualcomm SM8250 SoC
+ * (e.g., Galaxy S20 FE R8Q, Galaxy S20 Ultra 5G X1Q)
  *
  * Copyright (c) 2025 Kaustabh Chakraborty <kauschluss@disroot.org>
  */

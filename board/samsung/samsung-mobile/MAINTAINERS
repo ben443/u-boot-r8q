@@ -1,0 +1,6 @@
+Samsung Mobile Boards (Qualcomm Snapdragon SM8250)
+M:	Kaustabh Chakraborty <kauschluss@disroot.org>
+S:	Maintained
+F:	board/samsung/samsung-mobile/
+F:	configs/samsung-mobile_defconfig
+F:	include/configs/samsung-mobile.h

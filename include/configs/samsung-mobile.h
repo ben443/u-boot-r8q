@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Samsung Exynos Generic Board Configuration (for mobile devices)
+ * Samsung Mobile Board Configuration (Qualcomm Snapdragon)
+ *
+ * Supports Samsung Galaxy devices using Qualcomm SM8250 SoC
  *
  * Copyright (C) 2025 Kaustabh Chakraborty <kauschluss@disroot.org>
  */
 
-#ifndef __CONFIG_EXYNOS_MOBILE_H
-#define __CONFIG_EXYNOS_MOBILE_H
+#ifndef __CONFIG_SAMSUNG_MOBILE_H
+#define __CONFIG_SAMSUNG_MOBILE_H
 
 #define CPU_RELEASE_ADDR	secondary_boot_addr
 #define CFG_SYS_BAUDRATE_TABLE	{9600, 115200}
@@ -25,4 +27,4 @@
 #define CFG_SYS_CBSIZE			512
 #define CFG_SYS_MAXARGS			64
 
-#endif /* __CONFIG_EXYNOS_MOBILE_H */
+#endif /* __CONFIG_SAMSUNG_MOBILE_H */
