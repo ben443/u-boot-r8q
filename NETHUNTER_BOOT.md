@@ -55,7 +55,8 @@ is byte-identical to `u-boot.bin` and whose dtb section is the stock DTB, and
 that `magiskboot` can unpack it again. If `not/boot.img` or the `not/boot/`
 inputs are missing, the build fails instead of uploading a partial image. A
 manual run can set the `boot_image` input to `false` to explicitly skip the
-boot image; it is then omitted from the artifacts and `BUILD_INFO.txt`.
+boot image; it is then omitted from the artifacts and marked "NOT BUILT" in
+`BUILD_INFO.txt`.
 
 > **Note:** CI only proves that the files build and the image layout is
 > valid. Booting on real R8Q hardware is not tested by CI. Flashing requires
