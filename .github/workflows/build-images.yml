@@ -1,12 +1,6 @@
 name: Build U-Boot and Upload Artifacts
 
-on:
-  push:
-    branches:
-      - main
-      - master
-      - "copilot/**"
-  pull_request:
+om:
   workflow_dispatch:
 
 env:
