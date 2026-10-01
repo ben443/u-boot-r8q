@@ -2,22 +2,19 @@
 
 ## Overview
 
-A comprehensive GitHub Actions workflow has been added to automatically build U-Boot for Samsung Galaxy S20 FE (R8Q) and S20 Ultra 5G (X1Q) devices with Qualcomm SM8250 SoC.
+A streamlined GitHub Actions workflow automatically builds U-Boot for Samsung Galaxy S20 FE (R8Q) with Qualcomm SM8250 SoC.
 
-## Workflow Features
+## Build Device
+- **Samsung Galaxy S20 FE (R8Q)** - Qualcomm Snapdragon SM8250
 
-### Build Matrix
-- **SM8250 Samsung Galaxy S20 FE (R8Q)**
-- **SM8250 Samsung Galaxy S20 Ultra 5G (X1Q)**
-
-### Build Capabilities
+## Build Capabilities
 - ARM64 cross-compilation with `aarch64-linux-gnu-` toolchain
 - Device tree blob (DTB) generation
 - Build manifest/metadata generation
 - Boot image assembly (with fallback handling)
 - Dependency caching for faster builds
 
-### Artifact Outputs (per device)
+### Artifact Outputs
 1. **u-boot.bin** - Raw U-Boot binary
 2. **u-boot.dtb** - Device Tree Blob
 3. **u-boot.img** - Boot image (if assembled)
@@ -107,7 +104,7 @@ Fixed: **Arbitrary File Write via artifact extraction**
 
 ### Runner
 - Image: `ubuntu-latest`
-- Timeout: 60 minutes per device
+- Timeout: 60 minutes
 
 ### Dependencies Installed
 - `gcc-aarch64-linux-gnu` - ARM64 cross-compiler
@@ -213,6 +210,20 @@ f51522b6715 Fix: Rename exynos-mobile to samsung-mobile for Qualcomm SM8250
 ```
 - Adds enhanced GitHub Actions workflow
 - Includes security patches for CVE fixes
+
+### Commit 3: Workflow Documentation
+```
+36c07d88671 Add workflow documentation for GitHub Actions build system
+```
+- Comprehensive workflow guide and reference
+
+### Commit 4: Simplified Workflow
+```
+43c516ba466 Simplify workflow for R8Q only - remove X1Q multi-device support
+```
+- Focused exclusively on Samsung Galaxy S20 FE (R8Q)
+- Removed multi-device matrix complexity
+- Faster, cleaner build pipeline
 
 ## Next Steps
 
