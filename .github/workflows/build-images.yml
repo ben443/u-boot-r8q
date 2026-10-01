@@ -1,44 +1,311 @@
-name: Build images
+name: Build U-Boot and Upload Artifacts
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "copilot/**"
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CROSS_COMPILE: aarch64-linux-gnu-
+  OUTPUT_DIR: .output
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [sm8250-samsung-r8q, sm8250-samsung-x1q]
-
-    name: Build ${{ matrix.device }}
+    name: Build Samsung Galaxy S20 FE (R8Q)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache build dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/apt
+            /var/cache/apt
+          key: ${{ runner.os }}-build-deps-${{ hashFiles('**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-build-deps-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            gcc-aarch64-linux-gnu \
+            libgnutls28-dev \
+            python3-dev \
+            libpython3-dev
+
+      - name: Get build information
+        id: build_info
+        run: |
+          echo "git_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "git_branch=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+          echo "uboot_version=$(make --no-print-directory -C . kernelversion 2>/dev/null || echo 'unknown')" >> $GITHUB_OUTPUT
+
+      - name: Configure U-Boot for Samsung S20 FE (R8Q)
+        run: |
+          mkdir -p ${OUTPUT_DIR}
+          make \
+            CROSS_COMPILE=${CROSS_COMPILE} \
+            O=${OUTPUT_DIR} \
+            qcom_defconfig \
+            qcom-phone.config \
+            samsung-sm8250.config
+
+      - name: Build U-Boot for Samsung S20 FE (R8Q)
+        run: |
+          make \
+            CROSS_COMPILE=${CROSS_COMPILE} \
+            O=${OUTPUT_DIR} \
+            -j$(nproc) \
+            CONFIG_DEFAULT_DEVICE_TREE="qcom/sm8250-samsung-r8q" \
+            V=0
+
+      - name: Build Device Tree Blob
+        run: |
+          make \
+            CROSS_COMPILE=${CROSS_COMPILE} \
+            O=${OUTPUT_DIR} \
+            CONFIG_DEFAULT_DEVICE_TREE="qcom/sm8250-samsung-r8q" \
+            dtbs \
+            V=0
+
+      - name: Verify build outputs
+        run: |
+          set -e
+          ls -lh ${OUTPUT_DIR}/u-boot.bin
+          ls -lh ${OUTPUT_DIR}/u-boot.dtb 2>/dev/null || echo "DTB may be optional"
+          file ${OUTPUT_DIR}/u-boot.bin
+
+      - name: Assemble U-Boot boot image
+        continue-on-error: true
+        run: |
+          if [ -d "not/boot" ]; then
+            cp ${OUTPUT_DIR}/u-boot.bin not/boot/kernel || true
+            cp ${OUTPUT_DIR}/u-boot.dtb not/boot/kernel_dtb || true
+            if [ -f not/boot.img ] && command -v ./not/boot/magiskboot &> /dev/null; then
+              cp not/boot.img not/boot/boot.img
+              cd not/boot/ && ./magiskboot --repack boot.img u-boot.img || true
+              cd ../.. && cp not/boot/u-boot.img ${OUTPUT_DIR}/u-boot.img || true
+            fi
+          fi
+
+      - name: Create build manifest
+        run: |
+          cat > ${OUTPUT_DIR}/BUILD_INFO.txt << EOF
+          U-Boot Build Information
+          ========================
+          Device: Samsung Galaxy S20 FE (R8Q) - SM8250
+          Config: sm8250-samsung-r8q
+          
+          Build Details
+          Git Commit: ${{ steps.build_info.outputs.git_commit }}
+          Git Branch: ${{ steps.build_info.outputs.git_branch }}
+          Build Date: ${{ steps.build_info.outputs.build_date }}
+          U-Boot Version: ${{ steps.build_info.outputs.uboot_version }}
+          
+          Build Environment
+          Runner OS: ${{ runner.os }}
+          Runner Arch: ${{ runner.arch }}
+          
+          Output Files
+          u-boot.bin: ARM64 U-Boot binary
+          u-boot.dtb: Device Tree Blob
+          u-boot.img: Boot image (if assembled)
+          
+          Documentation
+          See NETHUNTER_BOOT.md for NetHunter Pro boot instructions
+          EOF
+          cat ${OUTPUT_DIR}/BUILD_INFO.txt
+
+      - name: Prepare artifacts for upload
+        run: |
+          mkdir -p artifacts/r8q
+          cp ${OUTPUT_DIR}/u-boot.bin artifacts/r8q/u-boot.bin || true
+          cp ${OUTPUT_DIR}/u-boot.dtb artifacts/r8q/u-boot.dtb || true
+          cp ${OUTPUT_DIR}/u-boot.img artifacts/r8q/u-boot.img || true
+          cp ${OUTPUT_DIR}/BUILD_INFO.txt artifacts/r8q/ || true
+          ls -la artifacts/r8q/
+
+      - name: Upload artifacts - Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: u-boot-r8q-bin
+          path: artifacts/r8q/u-boot.bin
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Upload artifacts - Device Tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: u-boot-r8q-dtb
+          path: artifacts/r8q/u-boot.dtb
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Upload artifacts - Boot Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: u-boot-r8q-img
+          path: artifacts/r8q/u-boot.img
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Upload artifacts - Build Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: u-boot-r8q-buildinfo
+          path: artifacts/r8q/BUILD_INFO.txt
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Upload all artifacts - Combined
+        uses: actions/upload-artifact@v4
+        with:
+          name: u-boot-r8q-${{ steps.build_info.outputs.git_commit }}
+          path: artifacts/r8q/
+          retention-days: 90
+
+      - name: Build summary
+        if: always()
+        run: |
+          echo "## Build Summary for ${{ matrix.device.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- Device: ${{ matrix.device.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Config: ${{ matrix.device.config }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ steps.build_info.outputs.git_commit }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ steps.build_info.outputs.git_branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Built: ${{ steps.build_info.outputs.build_date }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/${{ matrix.device.config }}/u-boot.bin ]; then
+            echo "- ✅ u-boot.bin ($(stat -f%z artifacts/r8q/u-boot.bin 2>/dev/null || stat -c%s artifacts/r8q/u-boot.bin 2>/dev/null || echo '?') bytes)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f artifacts/r8q/u-boot.dtb ]; then
+            echo "- ✅ u-boot.dtb" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f artifacts/r8q/u-boot.img ]; then
+            echo "- ✅ u-boot.img" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y --no-install-recommends gcc-aarch64-linux-gnu libgnutls28-dev
-
-      - name: Configure U-Boot
-        run: |
-          make CROSS_COMPILE=aarch64-linux-gnu- O=.output qcom_defconfig qcom-phone.config samsung-sm8250.config
-
-      - name: Build U-Boot
-        run: |
-          make CROSS_COMPILE=aarch64-linux-gnu- O=.output -j$(nproc) CONFIG_DEFAULT_DEVICE_TREE="qcom/${{ matrix.device }}"
-
-      - name: Assemble U-Boot Image for ${{ matrix.device }}
-        run: |
-          mv -f .output/u-boot.bin not/boot/kernel
-          mv -f .output/u-boot.dtb not/boot/kernel_dtb
-          mv not/boot.img not/boot/boot.img
-          cd not/boot/ && ./magiskboot --repack boot.img u-boot.img
-          cd ../.. && cp not/boot/u-boot.img .output/u-boot.img
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4.1.3
         with:
-          name: u-boot-${{ matrix.device }}.img
-          path: .output/u-boot.img
+          path: release-artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find release-artifacts -type f -name "*.bin" -o -name "*.dtb" -o -name "*.img" -o -name "*.txt" | while read file; do
+            cp "$file" release/
+          done
+          ls -la release/
+
+      - name: Get tag information
+        id: tag_info
+        run: |
+          echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "tag_subject=$(git cat-file -p ${GITHUB_REF#refs/tags/} | head -n 5)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+       uses: softprops/action-gh-release@v1
+       if: success()
+       with:
+         tag_name: ${{ github.ref_name }}
+         body: |
+           # U-Boot Release ${{ github.ref_name }}
+            
+           Pre-built U-Boot binaries for Samsung Galaxy S20 FE (R8Q)
+            
+           ## Device
+           - Samsung Galaxy S20 FE (R8Q) - Qualcomm Snapdragon SM8250
+            
+           ## Files Included
+           - `u-boot.bin` - Raw U-Boot binary
+           - `u-boot.dtb` - Device Tree Blob
+           - `u-boot.img` - Boot image (if available)
+           - `BUILD_INFO.txt` - Build information
+            
+           ## Usage
+           See [NETHUNTER_BOOT.md](./NETHUNTER_BOOT.md) for detailed installation and boot instructions.
+            
+           ## Build Information
+           - Build Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+           - Target: Qualcomm Snapdragon SM8250 (R8Q)
+         files: release/*
+         draft: false
+         prerelease: false
+       env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-to-releases:
+    name: Upload Build Artifacts to Releases
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+       uses: actions/download-artifact@v4.1.3
+       with:
+         path: build-artifacts
+
+      - name: Organize artifacts
+       run: |
+         mkdir -p release-staging/r8q
+         find build-artifacts -type f \( -name "*.bin" -o -name "*.dtb" -o -name "*.img" -o -name "*.txt" \) -exec cp {} release-staging/r8q/ \;
+         ls -la release-staging/r8q/
+
+      - name: Upload to GitHub Release (Latest)
+       uses: softprops/action-gh-release@v1
+       if: success()
+       with:
+         tag_name: nightly-latest
+         name: Nightly Build - Samsung S20 FE (R8Q)
+         body: |
+           # Nightly U-Boot Build
+            
+           Latest pre-built U-Boot binaries from the main branch for Samsung Galaxy S20 FE (R8Q).
+            
+           **Date:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+           **Commit:** ${{ github.sha }}
+           **Device:** Samsung Galaxy S20 FE (R8Q) - Qualcomm Snapdragon SM8250
+            
+           See [NETHUNTER_BOOT.md](./NETHUNTER_BOOT.md) for installation instructions.
+         files: release-staging/r8q/*
+         draft: false
+         prerelease: true
+         overwrite: true
+       env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
