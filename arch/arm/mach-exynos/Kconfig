@@ -285,6 +285,6 @@ source "board/samsung/smdk5420/Kconfig"
 source "board/samsung/espresso7420/Kconfig"
 source "board/samsung/axy17lte/Kconfig"
 source "board/samsung/e850-96/Kconfig"
-source "board/samsung/exynos-mobile/Kconfig"
+source "board/samsung/samsung-mobile/Kconfig"
 
 endif
