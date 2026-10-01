@@ -201,13 +201,16 @@ static void exynos_env_setup(void)
 	/* 
 	 * Setup kernel boot arguments for mainline Linux compatibility.
 	 * Include common options needed for successful kernel boot and
-	 * NetHunter Pro functionality.
+	 * NetHunter Pro functionality with security and debugging features.
 	 */
 	snprintf(buf, sizeof(buf),
 		 "root=/dev/sda1 ro console=ttyMSM0,115200 console=tty0 "
 		 "androidboot.selinux=permissive debug "
 		 "earlycon=msm_geni_serial,0xa90000 "
-		 "msm_geni_serial.con_enabled=1");
+		 "msm_geni_serial.con_enabled=1 "
+		 "kvm-arm.mode=preferred "
+		 "audit=1 audit_backlog_limit=8192 "
+		 "loglevel=4");
 	env_set("bootargs", buf);
 }
 
