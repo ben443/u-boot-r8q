@@ -2,8 +2,7 @@
 /*
  * Samsung Mobile Board Support (Qualcomm Snapdragon)
  *
- * Supports Samsung Galaxy devices using Qualcomm SM8250 SoC
- * (e.g., Galaxy S20 FE R8Q, Galaxy S20 Ultra 5G X1Q)
+ * Supports Samsung Galaxy S20 FE (R8Q) with Qualcomm SM8250 SoC
  *
  * Copyright (c) 2025 Kaustabh Chakraborty <kauschluss@disroot.org>
  */
