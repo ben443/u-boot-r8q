@@ -9,22 +9,37 @@ A streamlined GitHub Actions workflow automatically builds U-Boot for Samsung Ga
 
 ## Build Capabilities
 - ARM64 cross-compilation with `aarch64-linux-gnu-` toolchain
-- Device tree blob (DTB) generation
-- Build manifest/metadata generation
-- Boot image assembly (with fallback handling)
-- Dependency caching for faster builds
+- Device tree selection via `configs/samsung-r8q.config` (`qcom/sm8250-samsung-r8q`)
+- Build manifest/metadata generation and `SHA256SUMS`
+- Deterministic Android boot image assembly (`.github/scripts/r8q-package.sh`)
+- Packaging tests (`.github/scripts/test-r8q-package.sh`) run before the build
 
 ### Artifact Outputs
-1. **u-boot.bin** - Raw U-Boot binary
-2. **u-boot.dtb** - Device Tree Blob
-3. **u-boot.img** - Boot image (if assembled)
-4. **BUILD_INFO.txt** - Build information and metadata
+| Artifact name | File | Purpose |
+|---------------|------|---------|
+| `u-boot-r8q-boot-img` | `u-boot-r8q-boot.img` | Android boot image (header v2) – flash to the `boot` partition |
+| `u-boot-r8q-bin` | `u-boot.bin` | U-Boot + appended control DTB (boot image payload / chain-loading) |
+| `u-boot-r8q-control-dtb` | `u-boot-control.dtb` | U-Boot's own control DTB (reference only; already in `u-boot.bin`) |
+| `u-boot-r8q-linux-dtb` | `sm8250-samsung-r8q.dtb` | DTB for the Linux kernel – goes next to `Image` |
+| `u-boot-r8q-buildinfo` | `BUILD_INFO.txt`, `SHA256SUMS` | Build metadata and checksums |
+| `u-boot-r8q-<commit>` | all of the above | Combined download |
+
+The boot image is built from `not/boot.img` with `not/boot/magiskboot`:
+kernel section = `u-boot.bin`, dtb section = stock `not/boot/dtb` (ABL needs its
+`qcom,msm-id`/`board-id`), header = `not/boot/header`. The Linux DTB is **not**
+put in the boot image. See [NETHUNTER_BOOT.md](./NETHUNTER_BOOT.md#build-artifacts-which-file-is-which).
+
+There are no silent fallbacks: if any input is missing, assembly fails, or the
+result is not a valid repackable header v2 image whose kernel section equals
+`u-boot.bin`, the job fails. A manual run with the `boot_image` input set to
+`false` skips the boot image explicitly; it is then omitted from the artifacts
+and marked "NOT BUILT" in `BUILD_INFO.txt`.
+
+CI does not boot the image on hardware; a green run does not prove the device boots.
 
 ### Workflow Triggers
-- **Push events** - All branches
-- **Pull requests** - Automatic builds
-- **Manual dispatch** - Via `workflow_dispatch`
-- **Tagged releases** - Automatic release creation
+- **Manual dispatch** - Via `workflow_dispatch` (input `boot_image`, default `true`)
+- **Tagged releases** - Release job runs when dispatched on a `v*` tag
 
 ## Build Information Captured
 
@@ -175,18 +190,14 @@ Check workflow run logs for:
 1. Dependency installation errors
 2. Compilation errors
 3. Device tree compilation issues
-4. Boot image assembly errors (optional failures are OK)
+4. "Package and verify R8Q artifacts" errors – the message names the missing
+   or invalid input (e.g. `not/boot.img`, `not/boot/magiskboot`, a DTB that is
+   not `samsung,r8q`)
 
 ### Missing Artifacts
-- Some artifacts are optional (boot image, DTB)
-- Check BUILD_INFO.txt for successful files
-- Review workflow run logs for details
-
-### Cache Issues
-If experiencing cache-related issues:
-1. Clear GitHub Actions cache manually
-2. Rerun workflow
-3. First build will be slower but rebuild cache
+- All artifacts are required; a missing one fails the job
+- `u-boot-r8q-boot.img` is only absent when `boot_image` was set to `false`
+- Check BUILD_INFO.txt and the job summary
 
 ## Files Modified
 
