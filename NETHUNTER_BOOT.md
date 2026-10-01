@@ -17,10 +17,55 @@ The S20 FE uses the Snapdragon 865 Plus (SM8250) SoC and features UFS (Universal
 
 Before booting NetHunter Pro, you'll need:
 
-1. **U-Boot**: This modified U-Boot build flashed to the device boot partition
+1. **U-Boot**: `u-boot-r8q-boot.img` from the build, flashed to the device `boot` partition
 2. **Kernel Image**: Mainline Linux kernel compiled for SM8250 (ARM64 `Image` format)
 3. **Device Tree**: Device tree blob for S20 FE (`sm8250-samsung-r8q.dtb`)
 4. **Root Filesystem**: NetHunter Pro rootfs on the UFS device partition
+
+## Build Artifacts: Which File Is Which
+
+The CI workflow (`.github/workflows/build-images.yml`) builds U-Boot with
+`qcom_defconfig qcom-phone.config samsung-sm8250.config samsung-r8q.config`,
+which selects `qcom/sm8250-samsung-r8q` (from
+`dts/upstream/src/arm64/qcom/sm8250-samsung-r8q.dts`) as the device tree.
+Packaging is done by `.github/scripts/r8q-package.sh`, which fails the build
+if any of the files below cannot be produced or validated.
+
+| File | Purpose | Where it goes |
+|------|---------|---------------|
+| `u-boot-r8q-boot.img` | Android boot image (header v2) containing U-Boot | Flash to the `boot` partition. **This is the file to flash.** |
+| `u-boot.bin` | U-Boot with its control DTB appended | Payload inside `u-boot-r8q-boot.img`; use directly only for chain-loading or repacking yourself |
+| `u-boot-control.dtb` | U-Boot's own control DTB | Nothing to do – already inside `u-boot.bin`, provided for reference/debugging |
+| `sm8250-samsung-r8q.dtb` | DTB for the **Linux kernel** | Copy next to `Image` on the Linux boot partition (see below) |
+
+How `u-boot-r8q-boot.img` is assembled (from the committed `not/boot.img`
+and `not/boot/` inputs, using `not/boot/magiskboot`):
+
+- **kernel section** = `u-boot.bin`. Samsung's ABL loads this like an arm64
+  Linux `Image`. U-Boot uses the control DTB appended to itself
+  (`CONFIG_OF_SEPARATE`), not a DTB from ABL.
+- **dtb section** = `not/boot/dtb`, the stock Qualcomm "kona" DTBs with
+  `qcom,msm-id`/`qcom,board-id`. ABL needs a matching one to accept the image.
+  The upstream `sm8250-samsung-r8q.dtb` has no such ids and is intentionally
+  **not** placed in the boot image.
+- **header** (cmdline, OS version/patch level) = `not/boot/header`.
+
+The build verifies the result is a header v2 boot image whose kernel section
+is byte-identical to `u-boot.bin` and whose dtb section is the stock DTB, and
+that `magiskboot` can unpack it again. If `not/boot.img` or the `not/boot/`
+inputs are missing, the build fails instead of uploading a partial image. A
+manual run can set the `boot_image` input to `false` to explicitly skip the
+boot image; it is then omitted from the artifacts and `BUILD_INFO.txt`.
+
+> **Note:** CI only proves that the files build and the image layout is
+> valid. Booting on real R8Q hardware is not tested by CI. Flashing requires
+> an unlocked bootloader; flash `u-boot-r8q-boot.img` to the `boot`
+> partition with your usual Samsung tool (Odin/Heimdall – check the partition
+> name in your device's PIT). Keep a copy of your stock `boot.img` to restore.
+
+`sm8250-samsung-r8q.dtb` is built from this repository's
+`dts/upstream` snapshot. If your Linux kernel is much newer or older, prefer
+the DTB built from that kernel's own source tree.
 
 ## Boot Sequence
 
@@ -146,7 +191,7 @@ To modify kernel boot arguments at runtime:
 
 ### Permanent Configuration
 
-Edit `/home/runner/work/u-boot-r8q/u-boot-r8q/board/samsung/exynos-mobile/exynos-mobile.env` and rebuild U-Boot.
+Edit `board/samsung/samsung-mobile/samsung-mobile.env` and rebuild U-Boot.
 
 ## Memory Layout
 
@@ -158,7 +203,7 @@ The bootloader uses the following memory addresses for kernel boot (ARM64):
 - **0x45000000** - Script load address (`scriptaddr`)
 - **0x46000000** - PXE file load address (`pxefile_addr_r`)
 
-These can be modified in `exynos-mobile.env` if needed.
+These can be modified in `board/samsung/samsung-mobile/samsung-mobile.env` if needed.
 
 ## Troubleshooting
 
@@ -223,12 +268,19 @@ Save permanently:
 To rebuild U-Boot with custom configurations:
 
 ```bash
-cd /home/runner/work/u-boot-r8q/u-boot-r8q
-make samsung-sm8250.config
-make -j$(nproc)
+make CROSS_COMPILE=aarch64-linux-gnu- O=.output \
+  qcom_defconfig qcom-phone.config samsung-sm8250.config samsung-r8q.config
+make CROSS_COMPILE=aarch64-linux-gnu- O=.output -j$(nproc)
+make CROSS_COMPILE=aarch64-linux-gnu- O=.output dtbs
+
+# Collect artifacts and repack not/boot.img (needs fdtget from device-tree-compiler)
+.github/scripts/r8q-package.sh .output artifacts/r8q
 ```
 
-The built image will be in `u-boot-nodtb.bin` or similar.
+This produces `artifacts/r8q/u-boot-r8q-boot.img`, `u-boot.bin`,
+`u-boot-control.dtb` and `sm8250-samsung-r8q.dtb` as described in
+[Build Artifacts](#build-artifacts-which-file-is-which). The packaging logic is
+tested by `.github/scripts/test-r8q-package.sh`.
 
 ## Device Support
 
