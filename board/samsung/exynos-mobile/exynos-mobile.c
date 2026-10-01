@@ -134,7 +134,7 @@ static void exynos_env_setup(void)
 	const char *bootargs = exynos_prev_bl_get_bootargs();
 	const char *dev_compatible, *soc_compatible;
 	char *ptr;
-	char buf[128];
+	char buf[256];
 	int nr_compatibles;
 	int offset;
 	int ret;
@@ -197,6 +197,18 @@ static void exynos_env_setup(void)
 	snprintf(buf, sizeof(buf), "exynos/%s-%s.dtb", soc_compatible,
 		 dev_compatible);
 	env_set("fdtfile", buf);
+
+	/* 
+	 * Setup kernel boot arguments for mainline Linux compatibility.
+	 * Include common options needed for successful kernel boot and
+	 * NetHunter Pro functionality.
+	 */
+	snprintf(buf, sizeof(buf),
+		 "root=/dev/sda1 ro console=ttyMSM0,115200 console=tty0 "
+		 "androidboot.selinux=permissive debug "
+		 "earlycon=msm_geni_serial,0xa90000 "
+		 "msm_geni_serial.con_enabled=1");
+	env_set("bootargs", buf);
 }
 
 static int exynos_blk_env_setup(void)
@@ -209,10 +221,18 @@ static int exynos_blk_env_setup(void)
 	static char dfu_string[32];
 	int i;
 
-	blk_ifname = "mmc";
+	/* Try UFS first (preferred for SM8250), fallback to MMC */
+	blk_ifname = "scsi";
 	blk_desc = blk_get_dev(blk_ifname, blk_dev);
+	
 	if (!blk_desc) {
-		log_err("%s: required mmc device not available\n", __func__);
+		log_warning("%s: SCSI/UFS device not available, trying MMC\n", __func__);
+		blk_ifname = "mmc";
+		blk_desc = blk_get_dev(blk_ifname, blk_dev);
+	}
+	
+	if (!blk_desc) {
+		log_err("%s: no block device available (UFS/SCSI or MMC)\n", __func__);
 		return -ENODEV;
 	}
 
@@ -223,7 +243,7 @@ static int exynos_blk_env_setup(void)
 		if (!update_info.dfu_string &&
 		    !strncasecmp(info.name, "boot", strlen("boot"))) {
 			snprintf(dfu_string, sizeof(dfu_string),
-				 "mmc %d=u-boot.bin part %d %d", blk_dev,
+				 "%s %d=u-boot.bin part %d %d", blk_ifname, blk_dev,
 				 blk_dev, i);
 			update_info.dfu_string = dfu_string;
 		}
@@ -262,9 +282,15 @@ static int exynos_fastboot_setup(void)
 	}
 	env_set_hex("fastboot_addr_r", addr);
 
-	blk_dev = blk_get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	/* Try SCSI/UFS first, fallback to MMC */
+	blk_dev = blk_get_dev("scsi", 0);
 	if (!blk_dev) {
-		log_err("%s: required mmc device not available\n", __func__);
+		log_debug("%s: SCSI/UFS device not available, trying MMC\n", __func__);
+		blk_dev = blk_get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	}
+	
+	if (!blk_dev) {
+		log_err("%s: no block device available for fastboot\n", __func__);
 		return -ENODEV;
 	}
 
