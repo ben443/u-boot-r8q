@@ -206,7 +206,7 @@ static void exynos_env_setup(void)
 	 * NetHunter Pro functionality with security and debugging features.
 	 */
 	snprintf(buf, sizeof(buf),
-		 "root=/dev/sda1 ro console=ttyMSM0,115200 console=tty0 "
+		 "root=/dev/sda36 ro console=ttyMSM0,115200 console=tty0 "
 		 "androidboot.selinux=permissive debug "
 		 "earlycon=msm_geni_serial,0xa90000 "
 		 "msm_geni_serial.con_enabled=1 "
