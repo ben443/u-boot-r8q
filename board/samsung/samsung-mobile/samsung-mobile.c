@@ -206,7 +206,7 @@ static void exynos_env_setup(void)
 	 * NetHunter Pro functionality with security and debugging features.
 	 */
 	snprintf(buf, sizeof(buf),
-		 "root=/dev/sda36 rootwait rootfstype=ext4 ro "
+		 "root=UUID=4ca83f9b-4448-483e-8aa9-5e0c8c62f3d6 rootwait rootfstype=ext4 ro "
 		 "console=ttyMSM0,115200 console=tty0 "
 		 "androidboot.selinux=permissive debug "
 		 "earlycon=msm_geni_serial,0xa90000 "
