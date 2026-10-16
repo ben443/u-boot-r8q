@@ -161,7 +161,8 @@ fastboot -s <device-serial> download kernel.img
 The U-Boot environment is pre-configured with kernel boot parameters:
 
 ```
-bootargs=root=/dev/sda36 ro console=ttyMSM0,115200 console=tty0 \
+bootargs=root=/dev/sda36 rootwait rootfstype=ext4 ro \
+  console=ttyMSM0,115200 console=tty0 \
   androidboot.selinux=permissive debug \
   earlycon=msm_geni_serial,0xa90000 \
   msm_geni_serial.con_enabled=1 \
@@ -173,6 +174,8 @@ bootargs=root=/dev/sda36 ro console=ttyMSM0,115200 console=tty0 \
 Key parameters:
 
 - `root=/dev/sda36` - UFS root filesystem
+- `rootwait` - Wait for the UFS root device to become available
+- `rootfstype=ext4` - Mount the root filesystem as ext4
 - `console=ttyMSM0,115200` - Serial console on MSM UART
 - `androidboot.selinux=permissive` - SELinux in permissive mode (required for NetHunter)
 - `earlycon=msm_geni_serial` - Early console output
@@ -186,7 +189,7 @@ To modify kernel boot arguments at runtime:
 ### Via U-Boot Serial Console
 
 ```
-=> setenv bootargs "root=/dev/sda36 ro console=ttyMSM0,115200 your_custom_args_here"
+=> setenv bootargs "root=/dev/sda36 rootwait rootfstype=ext4 ro console=ttyMSM0,115200 your_custom_args_here"
 => run linux_boot
 ```
 
