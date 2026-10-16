@@ -1,26 +1,24 @@
 # NetHunter Pro Boot Guide for Samsung Galaxy S20 FE (SM8250)
 
-This U-Boot fork has been enhanced to support booting mainline Linux with NetHunter Pro on the Samsung Galaxy S20 FE (codename: R8Q).
+This U-Boot configuration targets the Samsung Galaxy S20 FE (codename: R8Q) and provides a standard bootflow for Linux distributions such as NetHunter Pro and Mobian. Successful Linux boot still depends on a kernel and device tree that support the device.
 
 ## Overview
 
 The S20 FE uses the Snapdragon 865 Plus (SM8250) SoC and features UFS (Universal Flash Storage) for improved performance. This U-Boot build supports:
 
-- **Native UFS Boot**: Primary boot device with automatic fallback to MMC
-- **Device Tree Support**: Full device tree blob (DTB) loading for mainline kernel
-- **Kernel Boot**: Support for ARM64 `booti` command and kernel image loading
-- **EFI Fallback**: EFI boot system with capsule updates for redundancy
-- **Fastboot Mode**: Quick kernel iteration via fastboot protocol
-- **NetHunter Pro**: Full support for security tools and Kali Linux integrations
+- **UFS Boot**: UFS is scanned through U-Boot's SCSI interface
+- **Distro Boot**: Scans available media for `extlinux/extlinux.conf` and EFI removable-media boot entries
+- **UEFI Fallback**: Tries the UEFI boot manager if no removable-media bootflow starts
+- **Recovery**: Volume Down opens a menu with serial-console, USB mass-storage, fastboot, and shell options
 
 ## Requirements
 
 Before booting NetHunter Pro, you'll need:
 
 1. **U-Boot**: `u-boot-r8q-boot.img` from the build, flashed to the device `boot` partition
-2. **Kernel Image**: Mainline Linux kernel compiled for SM8250 (ARM64 `Image` format)
-3. **Device Tree**: Device tree blob for S20 FE (`sm8250-samsung-r8q.dtb`)
-4. **Root Filesystem**: NetHunter Pro rootfs on the UFS device partition
+2. **Linux boot files**: An R8Q-compatible ARM64 kernel, a matching R8Q Linux DTB, and an initramfs when required by the distribution
+3. **Boot configuration**: An `extlinux/extlinux.conf` on a supported filesystem, or an EFI loader at `EFI/BOOT/BOOTAA64.EFI`
+4. **Root filesystem**: Installed by the chosen distribution; identify it by UUID or PARTUUID rather than assuming a `/dev/sdX` name
 
 ## Build Artifacts: Which File Is Which
 
@@ -72,161 +70,89 @@ the DTB built from that kernel's own source tree.
 
 The default boot sequence is:
 
-1. **Load Kernel & DTB**: Attempts to load from UFS boot partition
-2. **Boot Linux**: Executes `booti` with kernel, DTB, and optional ramdisk
-3. **EFI Fallback**: If Linux boot fails, tries EFI boot manager
-4. **Boot Menu**: If EFI fails, displays interactive boot menu
+1. **Scan media**: UFS and USB are initialized; standard boot scans available boot devices.
+2. **Boot a distribution entry**: U-Boot tries extlinux and EFI removable-media entries, which provide their own kernel arguments and optional initramfs.
+3. **UEFI fallback**: If no scanned entry boots, U-Boot tries the EFI boot manager.
+4. **Recovery menu**: On failure, the menu offers boot retry and recovery tools. Hold Volume Down during startup to open it directly.
 
 ## Setup Instructions
 
-### 1. Prepare UFS Partitions
+### Prepare boot files
 
-The device should have these UFS partitions:
+Install NetHunter Pro or Mobian using that project's device-specific instructions. On a FAT or ext4 partition visible to U-Boot, place the kernel, a DTB built for the same kernel, and any required initramfs. The packaged `sm8250-samsung-r8q.dtb` is a convenience; using the DTB from the exact kernel build is preferable.
 
-```
-Disk 0: Main rootfs (ext4)    - /dev/sda1
-Disk 1: Optional dtbo         - /dev/sdb1
-Disk 2: Optional dtbo         - /dev/sdc1
-Disk 3: Boot partition (64MB) - /dev/sdd1
-```
+For direct Linux boot, add `extlinux/extlinux.conf` to that partition. For example, adjust the paths and replace the root placeholder with the root filesystem's PARTUUID:
 
-NetHunter Pro rootfs should be installed on `/dev/sda1` with ext4 filesystem.
-
-### 2. Place Kernel and DTB
-
-On the boot partition (`/dev/sdd1`), place:
-
-- `Image` - ARM64 kernel image (mainline Linux)
-- `sm8250-samsung-r8q.dtb` - Device tree blob
-
-```bash
-# Mount boot partition and copy files
-mount /dev/sdd1 /mnt/boot
-cp Image /mnt/boot/
-cp sm8250-samsung-r8q.dtb /mnt/boot/
-umount /mnt/boot
+```text
+DEFAULT linux
+LABEL linux
+  LINUX /Image
+  FDT /sm8250-samsung-r8q.dtb
+  INITRD /initrd.img
+  APPEND root=PARTUUID=replace-with-root-partition-guid rw console=ttyMSM0,115200 console=tty0
 ```
 
-### 3. Configure NetHunter Pro Rootfs
-
-Install NetHunter Pro on the root partition with proper configuration:
-
-```bash
-mount /dev/sda1 /mnt/root
-# Extract NetHunter Pro rootfs
-tar xzf nethunter-pro-rootfs.tar.gz -C /mnt/root
-umount /mnt/root
-```
+Omit `INITRD` only when the kernel can mount the root filesystem without an initramfs. Distribution installers may provide their own extlinux configuration or EFI bootloader; use those files when available. U-Boot scans UFS/SCSI, USB, and other enabled boot devices instead of relying on a fixed partition number or Linux block-device name.
 
 ## Boot Methods
 
 ### Method 1: Automatic Boot (Default)
 
-Device will automatically boot to Linux kernel when powered on:
+The bootloader scans supported media for a distribution boot entry:
 
-1. U-Boot loads kernel and DTB from boot partition
-2. Kernel boots with embedded rootfs on `/dev/sda1`
-3. System reaches NetHunter Pro login prompt
+1. U-Boot loads the kernel, DTB, initramfs, and command line from extlinux or an EFI entry.
+2. The Linux command line identifies the installed root filesystem, preferably by UUID or PARTUUID.
 
 ### Method 2: Boot Menu
 
-Hold **Volume Down** when powering on to access boot menu:
+Hold **Volume Down** while powering on to access the recovery menu:
 
 ```
-1. Boot Linux Kernel (UFS)
-2. Boot via Fastboot (for development)
-3. Continue Boot (EFI)
-4. UEFI Maintenance Menu
-5. Reboot
-6. Power Off
+1. Boot from available media
+2. Boot UEFI boot manager
+3. Enable USB serial console
+4. Enable USB mass storage
+5. Enable fastboot mode
+6. Drop to U-Boot shell
+7. Reset device
+8. Power off
 ```
 
-Select option 1 to boot Linux kernel.
-
-### Method 3: Fastboot Kernel Boot
-
-For rapid kernel iteration during development:
-
-```bash
-# On host machine with fastboot installed
-fastboot boot Image
-
-# Or send custom kernel over USB
-fastboot -s <device-serial> download kernel.img
-# Then boot via menu option 2
-```
+Select option 1 to scan for an OS boot entry. Fastboot is provided as a recovery/flashing mode; direct `fastboot boot Image` is not configured by this build.
 
 ## Kernel Boot Parameters
 
-The U-Boot environment is pre-configured with kernel boot parameters:
-
-```
-bootargs=root=/dev/sda1 ro console=ttyMSM0,115200 console=tty0 \
-  androidboot.selinux=permissive debug \
-  earlycon=msm_geni_serial,0xa90000 \
-  msm_geni_serial.con_enabled=1 \
-  kvm-arm.mode=preferred \
-  audit=1 audit_backlog_limit=8192 \
-  loglevel=4
-```
-
-Key parameters:
-
-- `root=/dev/sda1` - UFS root filesystem
-- `console=ttyMSM0,115200` - Serial console on MSM UART
-- `androidboot.selinux=permissive` - SELinux in permissive mode (required for NetHunter)
-- `earlycon=msm_geni_serial` - Early console output
-- `kvm-arm.mode=preferred` - Enable KVM virtualization
-- `audit=1` - Enable audit subsystem
+The R8Q environment does not hard-code a root device or Linux command line. An extlinux entry supplies its command line with `APPEND`; an EFI distribution supplies its own boot configuration. Prefer stable identifiers such as `root=UUID=...` or `root=PARTUUID=...`, since Linux device names can change.
 
 ## Customizing Boot Arguments
 
-To modify kernel boot arguments at runtime:
-
-### Via U-Boot Serial Console
-
-```
-=> setenv bootargs "root=/dev/sda1 ro console=ttyMSM0,115200 your_custom_args_here"
-=> run linux_boot
-```
-
-### Permanent Configuration
-
-Edit `board/samsung/samsung-mobile/samsung-mobile.env` and rebuild U-Boot.
+Edit the distribution's extlinux configuration or EFI entry. To change U-Boot's boot scan or recovery menu, edit `board/qualcomm/samsung-r8q.env` and rebuild U-Boot. The default U-Boot environment is compiled into this build and is not saved across resets.
 
 ## Memory Layout
 
-The bootloader uses the following memory addresses for kernel boot (ARM64):
-
-- **0x40000000** - Kernel image load address (`kernel_addr_r`)
-- **0x43000000** - Device tree blob load address (`fdt_addr_r`)
-- **0x44000000** - Ramdisk/initrd load address (`ramdisk_addr_r`)
-- **0x45000000** - Script load address (`scriptaddr`)
-- **0x46000000** - PXE file load address (`pxefile_addr_r`)
-
-These can be modified in `board/samsung/samsung-mobile/samsung-mobile.env` if needed.
+Standard boot selects load addresses from the configured U-Boot environment. Avoid changing them unless the full R8Q memory map and image sizes have been checked.
 
 ## Troubleshooting
 
 ### Kernel Not Loading
 
-1. Check that kernel image is at `/boot/Image` on boot partition
-2. Verify device tree blob is at `/boot/sm8250-samsung-r8q.dtb`
-3. Check U-Boot console output for error messages
-4. Try booting via fastboot method to isolate issue
+1. Check that U-Boot can read the boot filesystem and find `extlinux/extlinux.conf` or `EFI/BOOT/BOOTAA64.EFI`.
+2. Check the kernel, DTB, and initramfs paths in that entry.
+3. Use a DTB built for the exact kernel version and R8Q variant.
+4. Check U-Boot console output; the Volume Down menu also provides serial and USB recovery options.
 
 ### Root Filesystem Not Mounting
 
-1. Verify ext4 filesystem on `/dev/sda1`: `fsck.ext4 /dev/sda1`
-2. Check that NetHunter Pro rootfs was properly extracted
-3. Verify `bootargs` contains correct root device parameter
-4. Check kernel console output for filesystem errors
+1. Verify the installed root filesystem and its UUID/PARTUUID.
+2. Check that the kernel command line references the correct identifier.
+3. Ensure required storage and filesystem drivers are built into the kernel or available in its initramfs.
+4. Check kernel console output for filesystem errors.
 
 ### Serial Console Not Working
 
 1. Verify USB serial adapter is properly connected
 2. Check host serial port settings (115200 baud, 8N1)
-3. Ensure early console is enabled in bootargs
+3. Verify that a console device and baud rate are specified in the distribution's kernel command line.
 
 ### Kernel Panic at Boot
 
@@ -237,16 +163,13 @@ These can be modified in `board/samsung/samsung-mobile/samsung-mobile.env` if ne
 
 ## Environment Variables
 
-Important U-Boot environment variables for kernel boot:
+The R8Q environment uses standard bootflow scanning rather than fixed kernel/DTB filenames:
 
 ```
-kernel_addr_r   - Kernel load address (default: 0x40000000)
-fdt_addr_r      - Device tree load address (default: 0x43000000)
-ramdisk_addr_r  - Ramdisk load address (default: 0x44000000)
-bootargs        - Kernel command line parameters
-load_kernel     - Script to load kernel image
-load_fdt        - Script to load device tree
-linux_boot      - Combined script to load and boot kernel
+bootcmd         - Starts R8Q bootflow scanning
+r8q_boot        - Scans extlinux/EFI entries, then tries the EFI boot manager
+bootmenu_*      - Boot and recovery options
+preboot         - Initializes UFS/SCSI and USB before scanning
 ```
 
 View current values:
@@ -259,10 +182,7 @@ Modify temporarily:
 => setenv variable value
 ```
 
-Save permanently:
-```
-=> saveenv
-```
+The configured environment is built into U-Boot; runtime changes are not persistent across resets.
 
 ## Rebuilding U-Boot
 
@@ -285,28 +205,20 @@ tested by `.github/scripts/test-r8q-package.sh`.
 
 ## Device Support
 
-This U-Boot build targets the Samsung Galaxy S20 FE (R8Q) but should also support:
-
-- Samsung Galaxy S20 Ultra 5G (X1Q)
-- Other SM8250-based Samsung devices with similar hardware
-
-Each device may require its own device tree blob and kernel configuration.
+This configuration targets the Samsung Galaxy S20 FE (R8Q) only. The boot image's Samsung ABL DTB and the Linux kernel DTB are device-specific; other SM8250 devices need their own boot image, device tree, and tested configuration.
 
 ## Security Considerations
 
-- **SELinux**: Running in permissive mode for compatibility
-- **Verified Boot**: Disabled for flexibility in development
-- **Secure Boot**: Not enforced; ensure you trust your kernel image
-- **Console Access**: Serial console enabled; secure in controlled environments
+- U-Boot does not force SELinux into permissive mode; configure this through the Linux distribution.
+- This development boot flow does not establish a verified-boot chain for the Linux kernel. Only boot images and kernels you trust.
+- U-Boot serial and USB recovery interfaces may expose privileged access; use them only in a controlled environment.
 
-For production use, consider enabling SELinux enforcement and verified boot.
+For production use, configure the Linux distribution's security policy and a verified boot chain appropriate to the device.
 
 ## Performance Tips
 
-1. Use native UFS boot (faster than eMMC)
-2. Disable unnecessary kernel modules
-3. Consider CONFIG_BOOTM_COMPRESSED if using compressed kernel
-4. Minimize ramdisk size if using initrd
+1. Keep the kernel, DTB, and initramfs from the same distribution/kernel build.
+2. Use an initramfs only when the distribution needs one for storage discovery or root filesystem setup.
 
 ## Additional Resources
 
