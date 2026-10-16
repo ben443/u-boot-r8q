@@ -69,7 +69,15 @@ jobs:
             samsung-sm8250.config \
             samsung-r8q.config
           grep -qx 'CONFIG_DEFAULT_DEVICE_TREE="qcom/sm8250-samsung-r8q"' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_ENV_DEFAULT_ENV_TEXT_FILE="board/qualcomm/samsung-r8q.env"' ${OUTPUT_DIR}/.config
           grep -qx 'CONFIG_OF_SEPARATE=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_BOOTSTD_FULL=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_CMD_BOOTFLOW=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_BOOTMETH_EXTLINUX=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_BOOTMETH_EFILOADER=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_SCSI=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_UFS=y' ${OUTPUT_DIR}/.config
+          grep -qx 'CONFIG_UFS_QCOM=y' ${OUTPUT_DIR}/.config
 
       - name: Build U-Boot for Samsung S20 FE (R8Q)
         run: |
