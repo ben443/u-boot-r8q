@@ -84,13 +84,13 @@ The default boot sequence is:
 The device should have these UFS partitions:
 
 ```
-Disk 0: Main rootfs (ext4)    - /dev/sda1
+Disk 0: Main rootfs (ext4)    - /dev/sda36
 Disk 1: Optional dtbo         - /dev/sdb1
 Disk 2: Optional dtbo         - /dev/sdc1
 Disk 3: Boot partition (64MB) - /dev/sdd1
 ```
 
-NetHunter Pro rootfs should be installed on `/dev/sda1` with ext4 filesystem.
+NetHunter Pro rootfs should be installed on `/dev/sda36` with ext4 filesystem.
 
 ### 2. Place Kernel and DTB
 
@@ -112,7 +112,7 @@ umount /mnt/boot
 Install NetHunter Pro on the root partition with proper configuration:
 
 ```bash
-mount /dev/sda1 /mnt/root
+mount /dev/sda36 /mnt/root
 # Extract NetHunter Pro rootfs
 tar xzf nethunter-pro-rootfs.tar.gz -C /mnt/root
 umount /mnt/root
@@ -125,7 +125,7 @@ umount /mnt/root
 Device will automatically boot to Linux kernel when powered on:
 
 1. U-Boot loads kernel and DTB from boot partition
-2. Kernel boots with embedded rootfs on `/dev/sda1`
+2. Kernel boots with embedded rootfs on `/dev/sda36`
 3. System reaches NetHunter Pro login prompt
 
 ### Method 2: Boot Menu
@@ -161,7 +161,8 @@ fastboot -s <device-serial> download kernel.img
 The U-Boot environment is pre-configured with kernel boot parameters:
 
 ```
-bootargs=root=/dev/sda1 ro console=ttyMSM0,115200 console=tty0 \
+bootargs=root=/dev/sda36 rootwait rootfstype=ext4 ro \
+  console=ttyMSM0,115200 console=tty0 \
   androidboot.selinux=permissive debug \
   earlycon=msm_geni_serial,0xa90000 \
   msm_geni_serial.con_enabled=1 \
@@ -172,7 +173,9 @@ bootargs=root=/dev/sda1 ro console=ttyMSM0,115200 console=tty0 \
 
 Key parameters:
 
-- `root=/dev/sda1` - UFS root filesystem
+- `root=/dev/sda36` - UFS root filesystem
+- `rootwait` - Wait for the UFS root device to become available
+- `rootfstype=ext4` - Mount the root filesystem as ext4
 - `console=ttyMSM0,115200` - Serial console on MSM UART
 - `androidboot.selinux=permissive` - SELinux in permissive mode (required for NetHunter)
 - `earlycon=msm_geni_serial` - Early console output
@@ -186,7 +189,7 @@ To modify kernel boot arguments at runtime:
 ### Via U-Boot Serial Console
 
 ```
-=> setenv bootargs "root=/dev/sda1 ro console=ttyMSM0,115200 your_custom_args_here"
+=> setenv bootargs "root=/dev/sda36 rootwait rootfstype=ext4 ro console=ttyMSM0,115200 your_custom_args_here"
 => run linux_boot
 ```
 
@@ -217,7 +220,7 @@ These can be modified in `board/samsung/samsung-mobile/samsung-mobile.env` if ne
 
 ### Root Filesystem Not Mounting
 
-1. Verify ext4 filesystem on `/dev/sda1`: `fsck.ext4 /dev/sda1`
+1. Verify ext4 filesystem on `/dev/sda36`: `fsck.ext4 /dev/sda36`
 2. Check that NetHunter Pro rootfs was properly extracted
 3. Verify `bootargs` contains correct root device parameter
 4. Check kernel console output for filesystem errors
