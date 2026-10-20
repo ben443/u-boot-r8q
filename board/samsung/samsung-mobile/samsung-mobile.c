@@ -137,6 +137,7 @@ static void qcom_env_setup(void)
 	const char *dev_compatible, *soc_compatible;
 	char *ptr;
 	char buf[256];
+	char fdt_path[256];
 	int nr_compatibles;
 	int offset;
 	int ret;
@@ -187,18 +188,12 @@ static void qcom_env_setup(void)
 	env_set("board", buf);
 
 	/*
-	 * NOTE: Board name usually goes as <manufacturer>-<codename>, but
-	 * upstream device trees for Qcom SoCs are <soc>-<codename>.
-	 * Extraction of <codename> from the board name is required.
+	 * EFI booting requires the path to correct DTB, specify it here.
+	 * Upstream device trees for Qcom SoCs are named
+	 * <soc>-<manufacturer>-<codename>.dtb
 	 */
-	ptr = strchr(dev_compatible, ',');
-	if (ptr)
-		dev_compatible = ptr + 1;
-
-	/* EFI booting requires the path to correct DTB, specify it here. */
-	snprintf(buf, sizeof(buf), "qcom/%s-%s.dtb", soc_compatible,
-		 dev_compatible);
-	env_set("fdtfile", buf);
+	snprintf(fdt_path, sizeof(fdt_path), "qcom/%s-%s.dtb", soc_compatible, buf);
+	env_set("fdtfile", fdt_path);
 
 	/* 
 	 * Setup kernel boot arguments for mainline Linux compatibility.
