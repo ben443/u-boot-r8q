@@ -46,7 +46,7 @@ struct efi_capsule_update_info update_info = {
  * peripheral block, and a sentinel at the end. This is filled in
  * dynamically.
  */
-static struct mm_region exynos_mem_map[CONFIG_NR_DRAM_BANKS + 2] = {
+static struct mm_region qcom_mem_map[CONFIG_NR_DRAM_BANKS + 2] = {
 	{
 		/* Peripheral MMIO block */
 		.virt = 0x10000000UL,
@@ -57,9 +57,9 @@ static struct mm_region exynos_mem_map[CONFIG_NR_DRAM_BANKS + 2] = {
 	},
 };
 
-struct mm_region *mem_map = exynos_mem_map;
+struct mm_region *mem_map = qcom_mem_map;
 
-static const char *exynos_prev_bl_get_bootargs(void)
+static const char *qcom_prev_bl_get_bootargs(void)
 {
 	void *prev_bl_fdt_base = (void *)get_prev_bl_fdt_addr();
 	int chosen_node_offset, ret;
@@ -90,7 +90,7 @@ static const char *exynos_prev_bl_get_bootargs(void)
 	return bootargs_prop->data;
 }
 
-static void exynos_parse_dram_banks(const void *fdt_base)
+static void qcom_parse_dram_banks(const void *fdt_base)
 {
 	u64 mem_addr, mem_size = 0;
 	u32 na, ns, i;
@@ -131,9 +131,9 @@ static void exynos_parse_dram_banks(const void *fdt_base)
 	}
 }
 
-static void exynos_env_setup(void)
+static void qcom_env_setup(void)
 {
-	const char *bootargs = exynos_prev_bl_get_bootargs();
+	const char *bootargs = qcom_prev_bl_get_bootargs();
 	const char *dev_compatible, *soc_compatible;
 	char *ptr;
 	char buf[256];
@@ -188,7 +188,7 @@ static void exynos_env_setup(void)
 
 	/*
 	 * NOTE: Board name usually goes as <manufacturer>-<codename>, but
-	 * upstream device trees for Exynos SoCs are <soc>-<codename>.
+	 * upstream device trees for Qcom SoCs are <soc>-<codename>.
 	 * Extraction of <codename> from the board name is required.
 	 */
 	ptr = strchr(dev_compatible, ',');
@@ -196,7 +196,7 @@ static void exynos_env_setup(void)
 		dev_compatible = ptr + 1;
 
 	/* EFI booting requires the path to correct DTB, specify it here. */
-	snprintf(buf, sizeof(buf), "exynos/%s-%s.dtb", soc_compatible,
+	snprintf(buf, sizeof(buf), "qcom/%s-%s.dtb", soc_compatible,
 		 dev_compatible);
 	env_set("fdtfile", buf);
 
@@ -217,7 +217,7 @@ static void exynos_env_setup(void)
 	env_set("bootargs", buf);
 }
 
-static int exynos_blk_env_setup(void)
+static int qcom_blk_env_setup(void)
 {
 	const char *blk_ifname;
 	int blk_dev = 0;
@@ -273,7 +273,7 @@ static int exynos_blk_env_setup(void)
 	return 0;
 }
 
-static int exynos_fastboot_setup(void)
+static int qcom_fastboot_setup(void)
 {
 	struct blk_desc *blk_dev;
 	struct disk_partition info = {0};
@@ -340,7 +340,7 @@ int timer_init(void)
 	ofnode timer_node;
 
 	/*
-	 * In a lot of Exynos devices, the previous bootloader does not
+	 * In a lot of Qcom devices, the previous bootloader does not
 	 * set CNTFRQ_EL0 properly. However, the timer node in
 	 * devicetree has the correct frequency, use that instead.
 	 */
@@ -353,7 +353,7 @@ int timer_init(void)
 
 int board_early_init_f(void)
 {
-	exynos_parse_dram_banks(gd->fdt_blob);
+	qcom_parse_dram_banks(gd->fdt_blob);
 
 	return 0;
 }
@@ -394,11 +394,11 @@ int misc_init_r(void)
 {
 	int ret;
 
-	exynos_env_setup();
+	qcom_env_setup();
 
-	ret = exynos_blk_env_setup();
+	ret = qcom_blk_env_setup();
 	if (ret)
 		return ret;
 
-	return exynos_fastboot_setup();
+	return qcom_fastboot_setup();
 }
