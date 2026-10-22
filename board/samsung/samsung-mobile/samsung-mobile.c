@@ -206,7 +206,7 @@ static void qcom_env_setup(void)
 	 * NetHunter Pro functionality with security and debugging features.
 	 */
 	snprintf(buf, sizeof(buf),
-		 "root=UUID=08c63da1-a4d5-4a62-970e-dcbd85fa2579 rootwait rootfstype=ext4 ro clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 "
+		 "root=UUID=4ca83f9b-4448-483e-8aa9-5e0c8c62f3d6 rootwait rootfstype=ext4 rw clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 "
 		 "console=ttyMSM0,115200 console=tty0 "
 		 "androidboot.selinux=permissive debug "
 		 "earlycon=msm_geni_serial,0xa90000 "
