@@ -16,11 +16,11 @@
 /* Enhanced configuration for mainline Linux kernel boot */
 
 /* Kernel boot parameters */
-#define CFG_SYS_LOAD_ADDR		0x40000000
+#define CFG_SYS_LOAD_ADDR		0xd0000000
 #define CFG_SYS_INIT_SP_ADDR		0x45000000
 
-/* Device tree and ramdisk addresses for ARM64 */
-#define CFG_SYS_FDT_BASE		0x43000000
+/* Device tree and initial RAM addresses for ARM64 */
+#define CFG_SYS_FDT_BASE		0xd5000000
 #define CFG_SYS_INIT_RAM_ADDR		0x44000000
 
 /* Console configuration */
