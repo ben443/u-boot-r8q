@@ -196,7 +196,7 @@ static void qcom_env_setup(void)
 		dev_compatible = ptr + 1;
 
 	/* EFI booting requires the path to correct DTB, specify it here. */
-	snprintf(buf, sizeof(buf), "qcom/%s-%s.dtb", soc_compatible,
+	snprintf(buf, sizeof(buf), "boot/sm8250-samsung-r8q.dtb", soc_compatible,
 		 dev_compatible);
 	env_set("fdtfile", buf);
 
@@ -206,7 +206,7 @@ static void qcom_env_setup(void)
 	 * NetHunter Pro functionality with security and debugging features.
 	 */
 	snprintf(buf, sizeof(buf),
-		 "root=UUID=4ca83f9b-4448-483e-8aa9-5e0c8c62f3d6 rootwait rootfstype=ext4 rw clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 "
+		 "root=/dev/block/sda36 rootwait rootfstype=ext4 rw clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 "
 		 "console=ttyMSM0,115200 console=tty0 "
 		 "androidboot.selinux=permissive debug "
 		 "earlycon=msm_geni_serial,0xa90000 "
