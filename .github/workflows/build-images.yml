@@ -1,5 +1,3 @@
-File: .github/workflows/build-images.yml
-
 name: Build U-Boot and Upload Artifacts
 
 on:
