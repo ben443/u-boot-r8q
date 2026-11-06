@@ -36,7 +36,6 @@ jobs:
           key: ${{ runner.os }}-build-deps-${{ hashFiles('**/Makefile') }}
           restore-keys: |
             ${{ runner.os }}-build-deps-
-
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
@@ -46,7 +45,6 @@ jobs:
             libgnutls28-dev \
             python3-dev \
             libpython3-dev
-
       - name: Test packaging script
         run: .github/scripts/test-r8q-package.sh
 
@@ -57,7 +55,6 @@ jobs:
           echo "git_branch=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
           echo "build_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
           echo "uboot_version=$(make --no-print-directory -C . kernelversion 2>/dev/null || echo 'unknown')" >> $GITHUB_OUTPUT
-
       - name: Configure U-Boot for Samsung S20 FE (R8Q)
         run: |
           mkdir -p ${OUTPUT_DIR}
@@ -70,7 +67,6 @@ jobs:
             samsung-r8q.config
           grep -qx 'CONFIG_DEFAULT_DEVICE_TREE="qcom/sm8250-samsung-r8q"' ${OUTPUT_DIR}/.config
           grep -qx 'CONFIG_OF_SEPARATE=y' ${OUTPUT_DIR}/.config
-
       - name: Build U-Boot for Samsung S20 FE (R8Q)
         run: |
           make \
@@ -78,7 +74,6 @@ jobs:
             O=${OUTPUT_DIR} \
             -j$(nproc) \
             V=0
-
       - name: Build Device Tree Blobs
         run: |
           make \
@@ -86,7 +81,6 @@ jobs:
             O=${OUTPUT_DIR} \
             dtbs \
             V=0
-
       - name: Package and verify R8Q artifacts
         run: |
           if [ "${BUILD_BOOT_IMAGE}" = "1" ]; then
@@ -95,7 +89,6 @@ jobs:
             .github/scripts/r8q-package.sh --no-boot-image ${OUTPUT_DIR} ${ARTIFACT_DIR}
           fi
           ls -la ${ARTIFACT_DIR}
-
       - name: Create build manifest
         run: |
           if [ -f ${ARTIFACT_DIR}/u-boot-r8q-boot.img ]; then
@@ -108,26 +101,22 @@ jobs:
           ========================
           Device: Samsung Galaxy S20 FE (R8Q) - SM8250
           Device tree: qcom/sm8250-samsung-r8q
-
           Build Details
           Git Commit: ${{ steps.build_info.outputs.git_commit }}
           Git Branch: ${{ steps.build_info.outputs.git_branch }}
           Build Date: ${{ steps.build_info.outputs.build_date }}
           U-Boot Version: ${{ steps.build_info.outputs.uboot_version }}
-
           Output Files
           ${BOOT_IMG_LINE}
           u-boot.bin: U-Boot with its control DTB appended (boot.img kernel payload / chain-loading)
           u-boot-control.dtb: U-Boot's own control DTB (already inside u-boot.bin; reference only)
           sm8250-samsung-r8q.dtb: Linux kernel DTB - copy to the boot partition next to Image
           SHA256SUMS: checksums of the files above
-
           Not verified by CI: booting on real R8Q hardware.
           See NETHUNTER_BOOT.md for flashing and Linux boot instructions.
           EOF
           (cd "${ARTIFACT_DIR}" && shopt -s nullglob && sha256sum -- *.bin *.dtb *.img > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS)
           cat ${ARTIFACT_DIR}/BUILD_INFO.txt ${ARTIFACT_DIR}/SHA256SUMS
-
       - name: Upload artifact - U-Boot binary
         uses: actions/upload-artifact@v4
         with:
@@ -204,7 +193,6 @@ jobs:
             echo ""
             echo "CI only verifies the build and image layout; boot on real R8Q hardware is not tested."
           } >> $GITHUB_STEP_SUMMARY
-
   release:
     name: Create Release
     needs: build
@@ -227,13 +215,11 @@ jobs:
           mkdir -p release
           find release-artifacts -type f \( -name "*.bin" -o -name "*.dtb" -o -name "*.img" -o -name "*.txt" -o -name SHA256SUMS \) -exec cp {} release/ \;
           ls -la release/
-
       - name: Get tag information
         id: tag_info
         run: |
           echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           echo "tag_subject=$(git cat-file -p ${GITHUB_REF#refs/tags/} | head -n 5)" >> $GITHUB_OUTPUT
-
       - name: Create Release
         uses: softprops/action-gh-release@v1
         if: success()
@@ -253,7 +239,6 @@ jobs:
             - `u-boot-control.dtb` - U-Boot's own control DTB (reference only, already inside `u-boot.bin`)
             - `sm8250-samsung-r8q.dtb` - Linux kernel DTB, copy next to `Image` on the boot partition
             - `BUILD_INFO.txt`, `SHA256SUMS` - Build information and checksums
-
             Booting on real hardware is not verified by CI.
             
             ## Usage
@@ -290,7 +275,6 @@ jobs:
           mkdir -p release-staging/r8q
           find build-artifacts -type f \( -name "*.bin" -o -name "*.dtb" -o -name "*.img" -o -name "*.txt" -o -name SHA256SUMS \) -exec cp {} release-staging/r8q/ \;
           ls -la release-staging/r8q/
-
       - name: Upload to GitHub Release (Latest)
         uses: softprops/action-gh-release@v1
         if: success()
