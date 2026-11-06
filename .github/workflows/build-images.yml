@@ -1,6 +1,5 @@
 File: .github/workflows/build-images.yml
 
-```yaml
 name: Build U-Boot and Upload Artifacts
 
 on:
@@ -316,4 +315,3 @@ jobs:
           overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
